@@ -16,7 +16,7 @@
 
   <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
     <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Éditeur PDF Avancé</h1>
-    <p class="text-center text-gray-600 mb-8">Masquez n'importe quelle zone sur votre PDF</p>
+    <p class="text-center text-gray-600 mb-8">Masquez et déplacez des zones sur votre PDF</p>
 
     <div id="upload-zone" class="border-2 border-dashed border-indigo-300 rounded-xl p-12 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all">
       <p class="text-lg font-medium text-gray-700 mb-2">Cliquez pour charger votre PDF</p>
@@ -55,7 +55,9 @@
     const overlayCtx = overlayCanvas.getContext('2d');
 
     let pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.5;
-    let zones = {}, isDrawing = false, startPos = null, currentRect = null;
+    let zones = {}, selectedZone = null;
+    let isDrawing = false, isDragging = false, isResizing = false;
+    let startX = 0, startY = 0, offsetX = 0, offsetY = 0, resizeHandle = null;
 
     uploadZone.addEventListener('click', () => pdfInput.click());
     pdfInput.addEventListener('change', handleFileUpload);
@@ -92,52 +94,128 @@
         overlayCtx.fillRect(z.x, z.y, z.w, z.h);
         overlayCtx.strokeStyle = 'rgba(239,68,68,0.8)';
         overlayCtx.strokeRect(z.x, z.y, z.w, z.h);
+        if (z === selectedZone) drawHandles(z);
       });
-      if (currentRect) {
-        overlayCtx.fillStyle = 'rgba(239,68,68,0.3)';
-        overlayCtx.fillRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
-      }
+    }
+
+    function drawHandles(zone) {
+      const size = 6;
+      const handles = getHandles(zone);
+      overlayCtx.fillStyle = 'blue';
+      handles.forEach(h => overlayCtx.fillRect(h.x - size/2, h.y - size/2, size, size));
+    }
+
+    function getHandles(z) {
+      return [
+        { name: 'tl', x: z.x, y: z.y },
+        { name: 'tr', x: z.x + z.w, y: z.y },
+        { name: 'bl', x: z.x, y: z.y + z.h },
+        { name: 'br', x: z.x + z.w, y: z.y + z.h }
+      ];
+    }
+
+    function getMousePos(e) {
+      const rect = overlayCanvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
     }
 
     overlayCanvas.addEventListener('mousedown', e => {
-      const rect = overlayCanvas.getBoundingClientRect();
-      startPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      isDrawing = true;
+      const { x, y } = getMousePos(e);
+      const pageZones = zones[currentPage] || [];
+
+      // Vérifie si on clique sur une poignée de redimensionnement
+      if (selectedZone) {
+        const handles = getHandles(selectedZone);
+        for (const h of handles) {
+          if (Math.abs(x - h.x) < 6 && Math.abs(y - h.y) < 6) {
+            isResizing = true;
+            resizeHandle = h.name;
+            startX = x; startY = y;
+            return;
+          }
+        }
+      }
+
+      // Vérifie si on clique sur une zone existante
+      const found = pageZones.find(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
+      if (found) {
+        selectedZone = found;
+        isDragging = true;
+        offsetX = x - found.x;
+        offsetY = y - found.y;
+      } else {
+        // Sinon on commence à dessiner une nouvelle zone
+        selectedZone = null;
+        isDrawing = true;
+        startX = x; startY = y;
+        if (!zones[currentPage]) zones[currentPage] = [];
+      }
+      drawZones();
     });
 
     overlayCanvas.addEventListener('mousemove', e => {
-      if (!isDrawing) return;
-      const rect = overlayCanvas.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      currentRect = {
-        x: Math.min(startPos.x, x),
-        y: Math.min(startPos.y, y),
-        w: Math.abs(x - startPos.x),
-        h: Math.abs(y - startPos.y)
-      };
-      drawZones();
+      const { x, y } = getMousePos(e);
+
+      if (isDrawing) {
+        const w = x - startX, h = y - startY;
+        currentRect = { x: Math.min(startX, x), y: Math.min(startY, y), w: Math.abs(w), h: Math.abs(h) };
+        drawZones();
+        overlayCtx.fillStyle = 'rgba(239,68,68,0.3)';
+        overlayCtx.fillRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
+        overlayCtx.strokeRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
+      }
+
+      if (isDragging && selectedZone) {
+        selectedZone.x = x - offsetX;
+        selectedZone.y = y - offsetY;
+        drawZones();
+      }
+
+      if (isResizing && selectedZone) {
+        const dx = x - startX, dy = y - startY;
+        if (resizeHandle.includes('t')) {
+          selectedZone.y += dy;
+          selectedZone.h -= dy;
+        }
+        if (resizeHandle.includes('b')) selectedZone.h += dy;
+        if (resizeHandle.includes('l')) {
+          selectedZone.x += dx;
+          selectedZone.w -= dx;
+        }
+        if (resizeHandle.includes('r')) selectedZone.w += dx;
+        startX = x; startY = y;
+        drawZones();
+      }
     });
 
     overlayCanvas.addEventListener('mouseup', () => {
-      if (isDrawing && currentRect && currentRect.w > 5 && currentRect.h > 5) {
-        if (!zones[currentPage]) zones[currentPage] = [];
+      if (isDrawing) {
         zones[currentPage].push(currentRect);
+        isDrawing = false;
+        currentRect = null;
       }
-      isDrawing = false;
-      currentRect = null;
+      isDragging = false;
+      isResizing = false;
+      resizeHandle = null;
       drawZones();
     });
 
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Delete' && selectedZone) {
+        zones[currentPage] = zones[currentPage].filter(z => z !== selectedZone);
+        selectedZone = null;
+        drawZones();
+      }
+    });
+
     document.getElementById('prevPage').onclick = () => {
-      if (currentPage > 1) { currentPage--; renderPage(currentPage); }
+      if (currentPage > 1) { currentPage--; selectedZone = null; renderPage(currentPage); }
     };
     document.getElementById('nextPage').onclick = () => {
-      if (currentPage < totalPages) { currentPage++; renderPage(currentPage); }
+      if (currentPage < totalPages) { currentPage++; selectedZone = null; renderPage(currentPage); }
     };
 
-    document.getElementById('clearZones').onclick = () => {
-      zones = {}; drawZones();
-    };
+    document.getElementById('clearZones').onclick = () => { zones = {}; selectedZone = null; drawZones(); };
 
     document.getElementById('downloadPDF').onclick = async () => {
       const { PDFDocument, rgb } = PDFLib;
