@@ -1,693 +1,676 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html>
-<head>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-  <meta http-equiv="Content-Style-Type" content="text/css">
-  <title></title>
-  <meta name="Generator" content="Cocoa HTML Writer">
-  <meta name="CocoaVersion" content="2575.6">
-  <style type="text/css">
-    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000}
-    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Times; -webkit-text-stroke: #000000; min-height: 14.0px}
-    span.s1 {font-kerning: none}
-  </style>
-</head>
-<body>
-<p class="p1"><span class="s1">import React, { useState, useRef, useEffect } from 'react';</span></p>
-<p class="p1"><span class="s1">import { Upload, Download, Trash2, Eye, AlertCircle, ChevronLeft, ChevronRight, Square, Eraser, Move } from 'lucide-react';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1">export default function AdvancedPDFEditor() {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [pdfFile, setPdfFile] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [processing, setProcessing] = useState(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [currentPage, setCurrentPage] = useState(1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [totalPages, setTotalPages] = useState(0);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [pdfDoc, setPdfDoc] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [libsLoaded, setLibsLoaded] = useState(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [zones, setZones] = useState({});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [isDrawing, setIsDrawing] = useState(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [startPos, setStartPos] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [currentRect, setCurrentRect] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [applyToAll, setApplyToAll] = useState(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [selectedZone, setSelectedZone] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [isDragging, setIsDragging] = useState(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [isResizing, setIsResizing] = useState(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [dragStart, setDragStart] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [resizeHandle, setResizeHandle] = useState(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const canvasRef = useRef(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const overlayCanvasRef = useRef(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const fileInputRef = useRef(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const [scale, setScale] = useState(1.5);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const loadLibraries = async () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (!window.PDFLib || !window['pdfjs-dist/build/pdf']) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const pdfLibScript = document.createElement('script');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>pdfLibScript.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.head.appendChild(pdfLibScript);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const pdfjsScript = document.createElement('script');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>pdfjsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>document.head.appendChild(pdfjsScript);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>await new Promise(resolve =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>let pdfLibLoaded = false;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>let pdfjsLoaded = false;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">          </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>pdfLibScript.onload = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>pdfLibLoaded = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (pdfjsLoaded) resolve();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>};</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">          </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>pdfjsScript.onload = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>pdfjsLoaded = true;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const pdfjsLib = window['pdfjs-dist/build/pdf'];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>if (pdfLibLoaded) resolve();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>};</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setLibsLoaded(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>loadLibraries();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}, []);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (pdfDoc &amp;&amp; canvasRef.current) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>renderPage(currentPage);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}, [pdfDoc, currentPage]);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>useEffect(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>drawZones();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>}, [zones, currentPage, currentRect, selectedZone]);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const handleFileUpload = async (e) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const file = e.target.files[0];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (file &amp;&amp; file.type === 'application/pdf') {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setPdfFile(file);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setZones({});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>await loadPDF(file);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const loadPDF = async (file) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>try {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const arrayBuffer = await file.arrayBuffer();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pdfjsLib = window['pdfjs-dist/build/pdf'];</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pdf = await loadingTask.promise;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setPdfDoc(pdf);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setTotalPages(pdf.numPages);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setCurrentPage(1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} catch (error) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>console.error('Erreur de chargement:', error);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>alert('Erreur lors du chargement du PDF');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const renderPage = async (pageNum) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!pdfDoc || !canvasRef.current) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const page = await pdfDoc.getPage(pageNum);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const viewport = page.getViewport({ scale });</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const canvas = canvasRef.current;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const context = canvas.getContext('2d');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>canvas.height = viewport.height;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>canvas.width = viewport.width;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const renderContext = {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>canvasContext: context,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>viewport: viewport</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>await page.render(renderContext).promise;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const overlayCanvas = overlayCanvasRef.current;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (overlayCanvas) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>overlayCanvas.height = viewport.height;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>overlayCanvas.width = viewport.width;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const drawZones = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const overlayCanvas = overlayCanvasRef.current;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!overlayCanvas) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const ctx = overlayCanvas.getContext('2d');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const pageZones = zones[currentPage] || [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>pageZones.forEach((zone, index) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const isSelected = selectedZone?.pageNum === currentPage &amp;&amp; selectedZone?.index === index;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.fillRect(zone.x, zone.y, zone.width, zone.height);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.lineWidth = isSelected ? 3 : 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (isSelected) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const handleSize = 8;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillStyle = 'rgba(59, 130, 246, 1)';</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Coins</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>// Côtés</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>});</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (currentRect) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.fillRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.lineWidth = 2;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const getCanvasCoordinates = (e, canvas) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const rect = canvas.getBoundingClientRect();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const scaleX = canvas.width / rect.width;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const scaleY = canvas.height / rect.height;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const x = (e.clientX - rect.left) * scaleX;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const y = (e.clientY - rect.top) * scaleY;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return { x, y };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const getResizeHandle = (x, y, zone) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const handleSize = 8;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const handles = {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'nw': { x: zone.x, y: zone.y },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'ne': { x: zone.x + zone.width, y: zone.y },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'sw': { x: zone.x, y: zone.y + zone.height },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'se': { x: zone.x + zone.width, y: zone.y + zone.height },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'n': { x: zone.x + zone.width/2, y: zone.y },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'s': { x: zone.x + zone.width/2, y: zone.y + zone.height },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'w': { x: zone.x, y: zone.y + zone.height/2 },</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>'e': { x: zone.x + zone.width, y: zone.y + zone.height/2 }</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>for (const [handle, pos] of Object.entries(handles)) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (Math.abs(x - pos.x) &lt;= handleSize &amp;&amp; Math.abs(y - pos.y) &lt;= handleSize) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>return handle;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return null;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const isPointInZone = (x, y, zone) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>return x &gt;= zone.x &amp;&amp; x &lt;= zone.x + zone.width &amp;&amp; y &gt;= zone.y &amp;&amp; y &lt;= zone.y + zone.height;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const handleMouseDown = (e) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const canvas = overlayCanvasRef.current;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!canvas) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const { x, y } = getCanvasCoordinates(e, canvas);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const pageZones = zones[currentPage] || [];</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>for (let i = pageZones.length - 1; i &gt;= 0; i--) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const zone = pageZones[i];</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (selectedZone?.pageNum === currentPage &amp;&amp; selectedZone?.index === i) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const handle = getResizeHandle(x, y, zone);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (handle) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>setIsResizing(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>setResizeHandle(handle);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>setDragStart({ x, y, zone: { ...zone } });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (isPointInZone(x, y, zone)) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>setSelectedZone({ pageNum: currentPage, index: i });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>setIsDragging(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>setDragStart({ x, y, zone: { ...zone } });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setIsDrawing(true);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setStartPos({ x, y });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setCurrentRect(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const handleMouseMove = (e) =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const canvas = overlayCanvasRef.current;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!canvas) return;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const { x, y } = getCanvasCoordinates(e, canvas);</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (isResizing &amp;&amp; dragStart &amp;&amp; selectedZone) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const dx = x - dragStart.x;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const dy = y - dragStart.y;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const originalZone = dragStart.zone;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let newZone = { ...originalZone };</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>switch (resizeHandle) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'se':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'sw':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.x = originalZone.x + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width - dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'ne':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.y = originalZone.y + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height - dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'nw':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.x = originalZone.x + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.y = originalZone.y + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width - dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height - dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'n':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.y = originalZone.y + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height - dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 's':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.height = originalZone.height + dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'w':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.x = originalZone.x + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width - dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>case 'e':</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>newZone.width = originalZone.width + dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (newZone.width &gt; 10 &amp;&amp; newZone.height &gt; 10) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const newZones = { ...zones };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>newZones[currentPage][selectedZone.index] = newZone;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>setZones(newZones);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else if (isDragging &amp;&amp; dragStart &amp;&amp; selectedZone) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const dx = x - dragStart.x;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const dy = y - dragStart.y;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const newZones = { ...zones };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const zone = { ...dragStart.zone };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>zone.x += dx;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>zone.y += dy;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>newZones[currentPage][selectedZone.index] = zone;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setZones(newZones);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setDragStart({ x, y, zone });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else if (isDrawing &amp;&amp; startPos) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const width = x - startPos.x;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const height = y - startPos.y;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setCurrentRect({</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>x: width &gt; 0 ? startPos.x : x,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>y: height &gt; 0 ? startPos.y : y,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>width: Math.abs(width),</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>height: Math.abs(height)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} else {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pageZones = zones[currentPage] || [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>let cursor = 'crosshair';</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>for (let i = pageZones.length - 1; i &gt;= 0; i--) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const zone = pageZones[i];</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (selectedZone?.pageNum === currentPage &amp;&amp; selectedZone?.index === i) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const handle = getResizeHandle(x, y, zone);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>if (handle) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>const cursors = {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>'nw': 'nw-resize', 'ne': 'ne-resize',</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>'sw': 'sw-resize', 'se': 'se-resize',</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>'n': 'n-resize', 's': 's-resize',</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>'w': 'w-resize', 'e': 'e-resize'</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>};</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>cursor = cursors[handle];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (isPointInZone(x, y, zone)) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>cursor = 'move';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>break;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>canvas.style.cursor = cursor;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const handleMouseUp = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (currentRect &amp;&amp; currentRect.width &gt; 5 &amp;&amp; currentRect.height &gt; 5) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const newZones = { ...zones };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>if (!newZones[currentPage]) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>newZones[currentPage] = [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>newZones[currentPage].push(currentRect);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setZones(newZones);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setSelectedZone({ pageNum: currentPage, index: newZones[currentPage].length - 1 });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setIsDrawing(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setIsDragging(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setIsResizing(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setStartPos(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setCurrentRect(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setDragStart(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setResizeHandle(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const deleteSelectedZone = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!selectedZone) return;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const newZones = { ...zones };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>newZones[selectedZone.pageNum].splice(selectedZone.index, 1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (newZones[selectedZone.pageNum].length === 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>delete newZones[selectedZone.pageNum];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setZones(newZones);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const clearZonesCurrentPage = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>const newZones = { ...zones };</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>delete newZones[currentPage];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setZones(newZones);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const clearAllZones = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setZones({});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const handleRemoveBlock = async () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (!pdfFile || !libsLoaded) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>alert('Bibliothèques en cours de chargement, veuillez patienter...');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (Object.keys(zones).length === 0) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>alert('Veuillez dessiner au moins une zone à masquer');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>return;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setProcessing(true);</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">    </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>try {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const { PDFDocument, rgb } = window.PDFLib;</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const arrayBuffer = await pdfFile.arrayBuffer();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pdfDocument = await PDFDocument.load(arrayBuffer);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pages = pdfDocument.getPages();</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>for (let pageNum = 1; pageNum &lt;= pages.length; pageNum++) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const page = pages[pageNum - 1];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>const { width, height } = page.getSize();</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">        </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>let zonesToApply = [];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (applyToAll &amp;&amp; zones[1]) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>zonesToApply = zones[1];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>} else if (zones[pageNum]) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>zonesToApply = zones[pageNum];</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>zonesToApply.forEach(zone =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>const pdfY = height - (zone.y / scale) - (zone.height / scale);</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">          </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>page.drawRectangle({</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>x: zone.x / scale,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>y: pdfY,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>width: zone.width / scale,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>height: zone.height / scale,</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>color: rgb(1, 1, 1),</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const pdfBytes = await pdfDocument.save();</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const blob = new Blob([pdfBytes], { type: 'application/pdf' });</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const blobUrl = window.URL.createObjectURL(blob);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>const a = document.createElement('a');</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>a.style.display = 'none';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>a.href = blobUrl;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>a.download = pdfFile.name.replace('.pdf', '') + '_modifie.pdf';</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>document.body.appendChild(a);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>a.click();</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setTimeout(() =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>window.URL.revokeObjectURL(blobUrl);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>if (document.body.contains(a)) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>document.body.removeChild(a);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>}, 1000);</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setProcessing(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>alert('✓ PDF téléchargé avec succès !');</span></p>
-<p class="p2"><span class="s1"><span class="Apple-converted-space">      </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>} catch (error) {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>console.error('Erreur complète:', error);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>setProcessing(false);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>alert('Erreur: ' + error.message);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>const resetFile = () =&gt; {</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setPdfFile(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setPdfDoc(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setTotalPages(0);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setCurrentPage(1);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setZones({});</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>setSelectedZone(null);</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>if (fileInputRef.current) fileInputRef.current.value = '';</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>};</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>return (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;div className="max-w-6xl mx-auto"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div className="bg-white rounded-2xl shadow-xl p-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div className="text-center mb-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;h1 className="text-3xl font-bold text-gray-800 mb-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>Éditeur PDF Avancé</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/h1&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;p className="text-gray-600"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>Masquez n'importe quelle zone - Déplacez et redimensionnez facilement</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{!libsLoaded &amp;&amp; (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;p className="text-yellow-800"&gt;Chargement des bibliothèques...&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>)}</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;div className="mb-8"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>{!pdfFile ? (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>onClick={() =&gt; libsLoaded &amp;&amp; fileInputRef.current?.click()}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>className={`border-3 border-dashed border-indigo-300 rounded-xl p-12 text-center transition-all ${</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>libsLoaded<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>? 'cursor-pointer hover:border-indigo-500 hover:bg-indigo-50'<span class="Apple-converted-space"> </span></span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>: 'opacity-50 cursor-not-allowed'</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}`}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;Upload className="w-16 h-16 mx-auto mb-4 text-indigo-400" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p className="text-lg font-medium text-gray-700 mb-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>{libsLoaded ? 'Cliquez pour charger votre PDF' : 'Chargement...'}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p className="text-sm text-gray-500"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>Le fichier reste sur votre ordinateur</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;input</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>ref={fileInputRef}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>type="file"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>accept=".pdf"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>onChange={handleFileUpload}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>className="hidden"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>disabled={!libsLoaded}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>/&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>) : (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div className="bg-green-50 border-2 border-green-300 rounded-xl p-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div className="bg-green-500 rounded-lg p-3 mr-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;Upload className="w-6 h-6 text-white" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;p className="font-medium text-gray-800"&gt;{pdfFile.name}&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;p className="text-sm text-gray-600"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                        </span>{(pdfFile.size / 1024 / 1024).toFixed(2)} MB • {totalPages} pages</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>onClick={resetFile}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>className="text-red-500 hover:text-red-700 p-2"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;Trash2 className="w-5 h-5" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>)}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>{pdfFile &amp;&amp; pdfDoc &amp;&amp; (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;div className="space-y-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div className="bg-blue-50 border border-blue-200 rounded-xl p-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-start mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;Move className="w-5 h-5 text-blue-600 mr-2 mt-0.5" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div className="flex-1"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;h3 className="font-semibold text-gray-800 mb-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>Instructions</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/h3&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;ul className="text-sm text-gray-600 space-y-1"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;li&gt;• &lt;strong&gt;Dessiner&lt;/strong&gt; : Cliquez et glissez pour créer une zone (rouge)&lt;/li&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;li&gt;• &lt;strong&gt;Sélectionner&lt;/strong&gt; : Cliquez sur une zone pour la sélectionner (bleue)&lt;/li&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;li&gt;• &lt;strong&gt;Déplacer&lt;/strong&gt; : Glissez une zone sélectionnée&lt;/li&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;li&gt;• &lt;strong&gt;Redimensionner&lt;/strong&gt; : Tirez sur les poignées bleues aux coins et bords&lt;/li&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;li&gt;• &lt;strong&gt;Supprimer&lt;/strong&gt; : Sélectionnez puis appuyez sur le bouton Suppr ou utilisez le bouton&lt;/li&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/ul&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center gap-4 mt-4 flex-wrap"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;label className="flex items-center cursor-pointer"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;input</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>type="checkbox"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>checked={applyToAll}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onChange={(e) =&gt; setApplyToAll(e.target.checked)}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>className="w-4 h-4 text-indigo-600 rounded mr-2"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>/&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;span className="text-sm text-gray-700"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>Appliquer les zones de la page 1 à toutes les pages</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/label&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="flex gap-2 mt-4 flex-wrap"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>{selectedZone &amp;&amp; (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onClick={deleteSelectedZone}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;Trash2 className="w-4 h-4" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>Supprimer zone sélectionnée</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>)}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>onClick={clearZonesCurrentPage}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;Eraser className="w-4 h-4" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>Effacer page {currentPage}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>onClick={clearAllZones}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;Trash2 className="w-4 h-4" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>Tout effacer</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;div className="bg-gray-50 border border-gray-200 rounded-xl p-6"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="flex items-center justify-between mb-4"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;Eye className="w-5 h-5 text-gray-600 mr-2" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;h3 className="font-semibold text-gray-800"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>Aperçu - {zones[currentPage]?.length || 0} zone(s)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>{selectedZone?.pageNum === currentPage &amp;&amp; &lt;span className="text-blue-600"&gt; (1 sélectionnée)&lt;/span&gt;}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/h3&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div className="flex items-center gap-2"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onClick={() =&gt; setCurrentPage(Math.max(1, currentPage - 1))}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>disabled={currentPage === 1}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;ChevronLeft className="w-5 h-5" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;span className="text-sm text-gray-600 min-w-20 text-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>Page {currentPage} / {totalPages}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/span&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onClick={() =&gt; setCurrentPage(Math.min(totalPages, currentPage + 1))}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>disabled={currentPage === totalPages}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>&lt;ChevronRight className="w-5 h-5" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;div className="bg-white rounded-lg overflow-auto flex justify-center" style={{maxHeight: '600px'}}&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;div style={{ position: 'relative', display: 'inline-block' }}&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;canvas ref={canvasRef} className="max-w-full" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;canvas</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>ref={overlayCanvasRef}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>className="max-w-full"</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>style={{ position: 'absolute', top: 0, left: 0, cursor: 'crosshair' }}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onMouseDown={handleMouseDown}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onMouseMove={handleMouseMove}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onMouseUp={handleMouseUp}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                      </span>onMouseLeave={handleMouseUp}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>/&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;p className="text-xs text-gray-500 mt-2 text-center"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>Zone rouge = nouvelle zone • Zone bleue = sélectionnée (déplaçable et redimensionnable)</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;button</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>onClick={handleRemoveBlock}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>disabled={processing || !libsLoaded || Object.keys(zones).length === 0}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>className={`w-full py-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center ${</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>processing || !libsLoaded || Object.keys(zones).length === 0</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>? 'bg-gray-400 cursor-not-allowed'</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>: 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-xl'</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>}`}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>{processing ? (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>Traitement en cours...</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>) : (</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>&lt;Download className="w-5 h-5 mr-2" /&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                    </span>Masquer les zones et télécharger</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                  </span>&lt;/&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">                </span>)}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">              </span>&lt;/button&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">            </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>)}</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p2"><span class="s1"></span><br></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;div className="mt-6 text-center text-sm text-gray-600"&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p&gt;🔒 Votre fichier est traité localement dans votre navigateur&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">          </span>&lt;p&gt;Aucune donnée n'est envoyée sur internet&lt;/p&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</span></p>
-<p class="p1"><span class="s1"><span class="Apple-converted-space">  </span>);</span></p>
-<p class="p1"><span class="s1">}</span></p>
-</body>
-</html>
+import React, { useState, useRef, useEffect } from 'react';
+import { Upload, Download, Trash2, Eye, AlertCircle, ChevronLeft, ChevronRight, Square, Eraser, Move } from 'lucide-react';
+
+export default function AdvancedPDFEditor() {
+  const [pdfFile, setPdfFile] = useState(null);
+  const [processing, setProcessing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pdfDoc, setPdfDoc] = useState(null);
+  const [libsLoaded, setLibsLoaded] = useState(false);
+  const [zones, setZones] = useState({});
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [startPos, setStartPos] = useState(null);
+  const [currentRect, setCurrentRect] = useState(null);
+  const [applyToAll, setApplyToAll] = useState(true);
+  const [selectedZone, setSelectedZone] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
+  const [dragStart, setDragStart] = useState(null);
+  const [resizeHandle, setResizeHandle] = useState(null);
+  const canvasRef = useRef(null);
+  const overlayCanvasRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const [scale, setScale] = useState(1.5);
+
+  useEffect(() => {
+    const loadLibraries = async () => {
+      if (!window.PDFLib || !window['pdfjs-dist/build/pdf']) {
+        const pdfLibScript = document.createElement('script');
+        pdfLibScript.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+        document.head.appendChild(pdfLibScript);
+
+        const pdfjsScript = document.createElement('script');
+        pdfjsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        document.head.appendChild(pdfjsScript);
+
+        await new Promise(resolve => {
+          let pdfLibLoaded = false;
+          let pdfjsLoaded = false;
+          
+          pdfLibScript.onload = () => {
+            pdfLibLoaded = true;
+            if (pdfjsLoaded) resolve();
+          };
+          
+          pdfjsScript.onload = () => {
+            pdfjsLoaded = true;
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            if (pdfLibLoaded) resolve();
+          };
+        });
+      }
+      setLibsLoaded(true);
+    };
+
+    loadLibraries();
+  }, []);
+
+  useEffect(() => {
+    if (pdfDoc && canvasRef.current) {
+      renderPage(currentPage);
+    }
+  }, [pdfDoc, currentPage]);
+
+  useEffect(() => {
+    drawZones();
+  }, [zones, currentPage, currentRect, selectedZone]);
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/pdf') {
+      setPdfFile(file);
+      setZones({});
+      setSelectedZone(null);
+      await loadPDF(file);
+    }
+  };
+
+  const loadPDF = async (file) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfjsLib = window['pdfjs-dist/build/pdf'];
+      
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      setPdfDoc(pdf);
+      setTotalPages(pdf.numPages);
+      setCurrentPage(1);
+    } catch (error) {
+      console.error('Erreur de chargement:', error);
+      alert('Erreur lors du chargement du PDF');
+    }
+  };
+
+  const renderPage = async (pageNum) => {
+    if (!pdfDoc || !canvasRef.current) return;
+
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    const renderContext = {
+      canvasContext: context,
+      viewport: viewport
+    };
+
+    await page.render(renderContext).promise;
+
+    const overlayCanvas = overlayCanvasRef.current;
+    if (overlayCanvas) {
+      overlayCanvas.height = viewport.height;
+      overlayCanvas.width = viewport.width;
+    }
+  };
+
+  const drawZones = () => {
+    const overlayCanvas = overlayCanvasRef.current;
+    if (!overlayCanvas) return;
+
+    const ctx = overlayCanvas.getContext('2d');
+    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+    const pageZones = zones[currentPage] || [];
+    pageZones.forEach((zone, index) => {
+      const isSelected = selectedZone?.pageNum === currentPage && selectedZone?.index === index;
+      
+      ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+      ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
+      ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
+      ctx.lineWidth = isSelected ? 3 : 2;
+      ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
+
+      if (isSelected) {
+        const handleSize = 8;
+        ctx.fillStyle = 'rgba(59, 130, 246, 1)';
+        
+        // Coins
+        ctx.fillRect(zone.x - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
+        
+        // Côtés
+        ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);
+        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);
+      }
+    });
+
+    if (currentRect) {
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.fillRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
+    }
+  };
+
+  const getCanvasCoordinates = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    return { x, y };
+  };
+
+  const getResizeHandle = (x, y, zone) => {
+    const handleSize = 8;
+    const handles = {
+      'nw': { x: zone.x, y: zone.y },
+      'ne': { x: zone.x + zone.width, y: zone.y },
+      'sw': { x: zone.x, y: zone.y + zone.height },
+      'se': { x: zone.x + zone.width, y: zone.y + zone.height },
+      'n': { x: zone.x + zone.width/2, y: zone.y },
+      's': { x: zone.x + zone.width/2, y: zone.y + zone.height },
+      'w': { x: zone.x, y: zone.y + zone.height/2 },
+      'e': { x: zone.x + zone.width, y: zone.y + zone.height/2 }
+    };
+
+    for (const [handle, pos] of Object.entries(handles)) {
+      if (Math.abs(x - pos.x) <= handleSize && Math.abs(y - pos.y) <= handleSize) {
+        return handle;
+      }
+    }
+    return null;
+  };
+
+  const isPointInZone = (x, y, zone) => {
+    return x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height;
+  };
+
+  const handleMouseDown = (e) => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+
+    const { x, y } = getCanvasCoordinates(e, canvas);
+    const pageZones = zones[currentPage] || [];
+
+    for (let i = pageZones.length - 1; i >= 0; i--) {
+      const zone = pageZones[i];
+      
+      if (selectedZone?.pageNum === currentPage && selectedZone?.index === i) {
+        const handle = getResizeHandle(x, y, zone);
+        if (handle) {
+          setIsResizing(true);
+          setResizeHandle(handle);
+          setDragStart({ x, y, zone: { ...zone } });
+          return;
+        }
+      }
+
+      if (isPointInZone(x, y, zone)) {
+        setSelectedZone({ pageNum: currentPage, index: i });
+        setIsDragging(true);
+        setDragStart({ x, y, zone: { ...zone } });
+        return;
+      }
+    }
+
+    setSelectedZone(null);
+    setIsDrawing(true);
+    setStartPos({ x, y });
+    setCurrentRect(null);
+  };
+
+  const handleMouseMove = (e) => {
+    const canvas = overlayCanvasRef.current;
+    if (!canvas) return;
+
+    const { x, y } = getCanvasCoordinates(e, canvas);
+
+    if (isResizing && dragStart && selectedZone) {
+      const dx = x - dragStart.x;
+      const dy = y - dragStart.y;
+      const originalZone = dragStart.zone;
+      let newZone = { ...originalZone };
+
+      switch (resizeHandle) {
+        case 'se':
+          newZone.width = originalZone.width + dx;
+          newZone.height = originalZone.height + dy;
+          break;
+        case 'sw':
+          newZone.x = originalZone.x + dx;
+          newZone.width = originalZone.width - dx;
+          newZone.height = originalZone.height + dy;
+          break;
+        case 'ne':
+          newZone.width = originalZone.width + dx;
+          newZone.y = originalZone.y + dy;
+          newZone.height = originalZone.height - dy;
+          break;
+        case 'nw':
+          newZone.x = originalZone.x + dx;
+          newZone.y = originalZone.y + dy;
+          newZone.width = originalZone.width - dx;
+          newZone.height = originalZone.height - dy;
+          break;
+        case 'n':
+          newZone.y = originalZone.y + dy;
+          newZone.height = originalZone.height - dy;
+          break;
+        case 's':
+          newZone.height = originalZone.height + dy;
+          break;
+        case 'w':
+          newZone.x = originalZone.x + dx;
+          newZone.width = originalZone.width - dx;
+          break;
+        case 'e':
+          newZone.width = originalZone.width + dx;
+          break;
+      }
+
+      if (newZone.width > 10 && newZone.height > 10) {
+        const newZones = { ...zones };
+        newZones[currentPage][selectedZone.index] = newZone;
+        setZones(newZones);
+      }
+    } else if (isDragging && dragStart && selectedZone) {
+      const dx = x - dragStart.x;
+      const dy = y - dragStart.y;
+
+      const newZones = { ...zones };
+      const zone = { ...dragStart.zone };
+      zone.x += dx;
+      zone.y += dy;
+      newZones[currentPage][selectedZone.index] = zone;
+      setZones(newZones);
+      setDragStart({ x, y, zone });
+    } else if (isDrawing && startPos) {
+      const width = x - startPos.x;
+      const height = y - startPos.y;
+
+      setCurrentRect({
+        x: width > 0 ? startPos.x : x,
+        y: height > 0 ? startPos.y : y,
+        width: Math.abs(width),
+        height: Math.abs(height)
+      });
+    } else {
+      const pageZones = zones[currentPage] || [];
+      let cursor = 'crosshair';
+
+      for (let i = pageZones.length - 1; i >= 0; i--) {
+        const zone = pageZones[i];
+        
+        if (selectedZone?.pageNum === currentPage && selectedZone?.index === i) {
+          const handle = getResizeHandle(x, y, zone);
+          if (handle) {
+            const cursors = {
+              'nw': 'nw-resize', 'ne': 'ne-resize',
+              'sw': 'sw-resize', 'se': 'se-resize',
+              'n': 'n-resize', 's': 's-resize',
+              'w': 'w-resize', 'e': 'e-resize'
+            };
+            cursor = cursors[handle];
+            break;
+          }
+        }
+
+        if (isPointInZone(x, y, zone)) {
+          cursor = 'move';
+          break;
+        }
+      }
+
+      canvas.style.cursor = cursor;
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (currentRect && currentRect.width > 5 && currentRect.height > 5) {
+      const newZones = { ...zones };
+      if (!newZones[currentPage]) {
+        newZones[currentPage] = [];
+      }
+      newZones[currentPage].push(currentRect);
+      setZones(newZones);
+      setSelectedZone({ pageNum: currentPage, index: newZones[currentPage].length - 1 });
+    }
+    setIsDrawing(false);
+    setIsDragging(false);
+    setIsResizing(false);
+    setStartPos(null);
+    setCurrentRect(null);
+    setDragStart(null);
+    setResizeHandle(null);
+  };
+
+  const deleteSelectedZone = () => {
+    if (!selectedZone) return;
+    
+    const newZones = { ...zones };
+    newZones[selectedZone.pageNum].splice(selectedZone.index, 1);
+    if (newZones[selectedZone.pageNum].length === 0) {
+      delete newZones[selectedZone.pageNum];
+    }
+    setZones(newZones);
+    setSelectedZone(null);
+  };
+
+  const clearZonesCurrentPage = () => {
+    const newZones = { ...zones };
+    delete newZones[currentPage];
+    setZones(newZones);
+    setSelectedZone(null);
+  };
+
+  const clearAllZones = () => {
+    setZones({});
+    setSelectedZone(null);
+  };
+
+  const handleRemoveBlock = async () => {
+    if (!pdfFile || !libsLoaded) {
+      alert('Bibliothèques en cours de chargement, veuillez patienter...');
+      return;
+    }
+
+    if (Object.keys(zones).length === 0) {
+      alert('Veuillez dessiner au moins une zone à masquer');
+      return;
+    }
+
+    setProcessing(true);
+    
+    try {
+      const { PDFDocument, rgb } = window.PDFLib;
+      
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const pdfDocument = await PDFDocument.load(arrayBuffer);
+      const pages = pdfDocument.getPages();
+      
+      for (let pageNum = 1; pageNum <= pages.length; pageNum++) {
+        const page = pages[pageNum - 1];
+        const { width, height } = page.getSize();
+        
+        let zonesToApply = [];
+        if (applyToAll && zones[1]) {
+          zonesToApply = zones[1];
+        } else if (zones[pageNum]) {
+          zonesToApply = zones[pageNum];
+        }
+
+        zonesToApply.forEach(zone => {
+          const pdfY = height - (zone.y / scale) - (zone.height / scale);
+          
+          page.drawRectangle({
+            x: zone.x / scale,
+            y: pdfY,
+            width: zone.width / scale,
+            height: zone.height / scale,
+            color: rgb(1, 1, 1),
+          });
+        });
+      }
+      
+      const pdfBytes = await pdfDocument.save();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blobUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = blobUrl;
+      a.download = pdfFile.name.replace('.pdf', '') + '_modifie.pdf';
+      
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+      }, 1000);
+      
+      setProcessing(false);
+      alert('✓ PDF téléchargé avec succès !');
+      
+    } catch (error) {
+      console.error('Erreur complète:', error);
+      setProcessing(false);
+      alert('Erreur: ' + error.message);
+    }
+  };
+
+  const resetFile = () => {
+    setPdfFile(null);
+    setPdfDoc(null);
+    setTotalPages(0);
+    setCurrentPage(1);
+    setZones({});
+    setSelectedZone(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-2">
+              Éditeur PDF Avancé
+            </h1>
+            <p className="text-gray-600">
+              Masquez n'importe quelle zone - Déplacez et redimensionnez facilement
+            </p>
+          </div>
+
+          {!libsLoaded && (
+            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+              <p className="text-yellow-800">Chargement des bibliothèques...</p>
+            </div>
+          )}
+
+          <div className="mb-8">
+            {!pdfFile ? (
+              <div
+                onClick={() => libsLoaded && fileInputRef.current?.click()}
+                className={`border-3 border-dashed border-indigo-300 rounded-xl p-12 text-center transition-all ${
+                  libsLoaded 
+                    ? 'cursor-pointer hover:border-indigo-500 hover:bg-indigo-50' 
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <Upload className="w-16 h-16 mx-auto mb-4 text-indigo-400" />
+                <p className="text-lg font-medium text-gray-700 mb-2">
+                  {libsLoaded ? 'Cliquez pour charger votre PDF' : 'Chargement...'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Le fichier reste sur votre ordinateur
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={!libsLoaded}
+                />
+              </div>
+            ) : (
+              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="bg-green-500 rounded-lg p-3 mr-4">
+                      <Upload className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-800">{pdfFile.name}</p>
+                      <p className="text-sm text-gray-600">
+                        {(pdfFile.size / 1024 / 1024).toFixed(2)} MB • {totalPages} pages
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={resetFile}
+                    className="text-red-500 hover:text-red-700 p-2"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {pdfFile && pdfDoc && (
+            <div className="space-y-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                <div className="flex items-start mb-4">
+                  <Move className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800 mb-2">
+                      Instructions
+                    </h3>
+                    <ul className="text-sm text-gray-600 space-y-1">
+                      <li>• <strong>Dessiner</strong> : Cliquez et glissez pour créer une zone (rouge)</li>
+                      <li>• <strong>Sélectionner</strong> : Cliquez sur une zone pour la sélectionner (bleue)</li>
+                      <li>• <strong>Déplacer</strong> : Glissez une zone sélectionnée</li>
+                      <li>• <strong>Redimensionner</strong> : Tirez sur les poignées bleues aux coins et bords</li>
+                      <li>• <strong>Supprimer</strong> : Sélectionnez puis appuyez sur le bouton Suppr ou utilisez le bouton</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 mt-4 flex-wrap">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={applyToAll}
+                      onChange={(e) => setApplyToAll(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded mr-2"
+                    />
+                    <span className="text-sm text-gray-700">
+                      Appliquer les zones de la page 1 à toutes les pages
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex gap-2 mt-4 flex-wrap">
+                  {selectedZone && (
+                    <button
+                      onClick={deleteSelectedZone}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Supprimer zone sélectionnée
+                    </button>
+                  )}
+                  <button
+                    onClick={clearZonesCurrentPage}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
+                  >
+                    <Eraser className="w-4 h-4" />
+                    Effacer page {currentPage}
+                  </button>
+                  <button
+                    onClick={clearAllZones}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Tout effacer
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center">
+                    <Eye className="w-5 h-5 text-gray-600 mr-2" />
+                    <h3 className="font-semibold text-gray-800">
+                      Aperçu - {zones[currentPage]?.length || 0} zone(s)
+                      {selectedZone?.pageNum === currentPage && <span className="text-blue-600"> (1 sélectionnée)</span>}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <span className="text-sm text-gray-600 min-w-20 text-center">
+                      Page {currentPage} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="bg-white rounded-lg overflow-auto flex justify-center" style={{maxHeight: '600px'}}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <canvas ref={canvasRef} className="max-w-full" />
+                    <canvas
+                      ref={overlayCanvasRef}
+                      className="max-w-full"
+                      style={{ position: 'absolute', top: 0, left: 0, cursor: 'crosshair' }}
+                      onMouseDown={handleMouseDown}
+                      onMouseMove={handleMouseMove}
+                      onMouseUp={handleMouseUp}
+                      onMouseLeave={handleMouseUp}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Zone rouge = nouvelle zone • Zone bleue = sélectionnée (déplaçable et redimensionnable)
+                </p>
+              </div>
+
+              <button
+                onClick={handleRemoveBlock}
+                disabled={processing || !libsLoaded || Object.keys(zones).length === 0}
+                className={`w-full py-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center ${
+                  processing || !libsLoaded || Object.keys(zones).length === 0
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-xl'
+                }`}
+              >
+                {processing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
+                    Traitement en cours...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5 mr-2" />
+                    Masquer les zones et télécharger
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 text-center text-sm text-gray-600">
+          <p>🔒 Votre fichier est traité localement dans votre navigateur</p>
+          <p>Aucune donnée n'est envoyée sur internet</p>
+        </div>
+      </div>
+    </div>
+  );
+}
