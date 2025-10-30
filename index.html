@@ -1,676 +1,170 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Download, Trash2, Eye, AlertCircle, ChevronLeft, ChevronRight, Square, Eraser, Move } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Éditeur PDF Avancé</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
+</head>
 
-export default function AdvancedPDFEditor() {
-  const [pdfFile, setPdfFile] = useState(null);
-  const [processing, setProcessing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(0);
-  const [pdfDoc, setPdfDoc] = useState(null);
-  const [libsLoaded, setLibsLoaded] = useState(false);
-  const [zones, setZones] = useState({});
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState(null);
-  const [currentRect, setCurrentRect] = useState(null);
-  const [applyToAll, setApplyToAll] = useState(true);
-  const [selectedZone, setSelectedZone] = useState(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [dragStart, setDragStart] = useState(null);
-  const [resizeHandle, setResizeHandle] = useState(null);
-  const canvasRef = useRef(null);
-  const overlayCanvasRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const [scale, setScale] = useState(1.5);
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-6">
 
-  useEffect(() => {
-    const loadLibraries = async () => {
-      if (!window.PDFLib || !window['pdfjs-dist/build/pdf']) {
-        const pdfLibScript = document.createElement('script');
-        pdfLibScript.src = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
-        document.head.appendChild(pdfLibScript);
+  <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
+    <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Éditeur PDF Avancé</h1>
+    <p class="text-center text-gray-600 mb-8">Masquez n'importe quelle zone sur votre PDF</p>
 
-        const pdfjsScript = document.createElement('script');
-        pdfjsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        document.head.appendChild(pdfjsScript);
+    <div id="upload-zone" class="border-2 border-dashed border-indigo-300 rounded-xl p-12 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all">
+      <p class="text-lg font-medium text-gray-700 mb-2">Cliquez pour charger votre PDF</p>
+      <p class="text-sm text-gray-500">Le fichier reste sur votre ordinateur</p>
+      <input type="file" id="pdfInput" accept=".pdf" class="hidden">
+    </div>
 
-        await new Promise(resolve => {
-          let pdfLibLoaded = false;
-          let pdfjsLoaded = false;
-          
-          pdfLibScript.onload = () => {
-            pdfLibLoaded = true;
-            if (pdfjsLoaded) resolve();
-          };
-          
-          pdfjsScript.onload = () => {
-            pdfjsLoaded = true;
-            const pdfjsLib = window['pdfjs-dist/build/pdf'];
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-            if (pdfLibLoaded) resolve();
-          };
-        });
-      }
-      setLibsLoaded(true);
-    };
+    <div id="viewer" class="hidden mt-8">
+      <div class="flex justify-between mb-2">
+        <button id="prevPage" class="bg-gray-200 px-3 py-1 rounded">←</button>
+        <span id="pageInfo" class="text-gray-700"></span>
+        <button id="nextPage" class="bg-gray-200 px-3 py-1 rounded">→</button>
+      </div>
 
-    loadLibraries();
-  }, []);
+      <div class="bg-white rounded-lg overflow-auto flex justify-center" style="max-height:600px;">
+        <div style="position: relative;">
+          <canvas id="pdfCanvas"></canvas>
+          <canvas id="overlayCanvas" style="position:absolute;top:0;left:0;cursor:crosshair;"></canvas>
+        </div>
+      </div>
 
-  useEffect(() => {
-    if (pdfDoc && canvasRef.current) {
-      renderPage(currentPage);
-    }
-  }, [pdfDoc, currentPage]);
+      <div class="flex justify-between mt-4">
+        <button id="clearZones" class="bg-orange-500 text-white px-4 py-2 rounded">Effacer zones</button>
+        <button id="downloadPDF" class="bg-indigo-600 text-white px-4 py-2 rounded">Télécharger PDF modifié</button>
+      </div>
+    </div>
+  </div>
 
-  useEffect(() => {
-    drawZones();
-  }, [zones, currentPage, currentRect, selectedZone]);
+  <script>
+    const pdfInput = document.getElementById('pdfInput');
+    const uploadZone = document.getElementById('upload-zone');
+    const viewer = document.getElementById('viewer');
+    const pdfCanvas = document.getElementById('pdfCanvas');
+    const overlayCanvas = document.getElementById('overlayCanvas');
+    const ctx = pdfCanvas.getContext('2d');
+    const overlayCtx = overlayCanvas.getContext('2d');
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file && file.type === 'application/pdf') {
-      setPdfFile(file);
-      setZones({});
-      setSelectedZone(null);
-      await loadPDF(file);
-    }
-  };
+    let pdfDoc = null, currentPage = 1, totalPages = 0, scale = 1.5;
+    let zones = {}, isDrawing = false, startPos = null, currentRect = null;
 
-  const loadPDF = async (file) => {
-    try {
+    uploadZone.addEventListener('click', () => pdfInput.click());
+    pdfInput.addEventListener('change', handleFileUpload);
+
+    async function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (!file) return;
       const arrayBuffer = await file.arrayBuffer();
-      const pdfjsLib = window['pdfjs-dist/build/pdf'];
-      
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      setPdfDoc(pdf);
-      setTotalPages(pdf.numPages);
-      setCurrentPage(1);
-    } catch (error) {
-      console.error('Erreur de chargement:', error);
-      alert('Erreur lors du chargement du PDF');
+      pdfDoc = await loadingTask.promise;
+      totalPages = pdfDoc.numPages;
+      viewer.classList.remove('hidden');
+      uploadZone.classList.add('hidden');
+      renderPage(1);
     }
-  };
 
-  const renderPage = async (pageNum) => {
-    if (!pdfDoc || !canvasRef.current) return;
-
-    const page = await pdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-    
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-
-    const renderContext = {
-      canvasContext: context,
-      viewport: viewport
-    };
-
-    await page.render(renderContext).promise;
-
-    const overlayCanvas = overlayCanvasRef.current;
-    if (overlayCanvas) {
-      overlayCanvas.height = viewport.height;
+    async function renderPage(num) {
+      const page = await pdfDoc.getPage(num);
+      const viewport = page.getViewport({ scale });
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
       overlayCanvas.width = viewport.width;
+      overlayCanvas.height = viewport.height;
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      drawZones();
+      document.getElementById('pageInfo').textContent = `Page ${num}/${totalPages}`;
     }
-  };
 
-  const drawZones = () => {
-    const overlayCanvas = overlayCanvasRef.current;
-    if (!overlayCanvas) return;
-
-    const ctx = overlayCanvas.getContext('2d');
-    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-
-    const pageZones = zones[currentPage] || [];
-    pageZones.forEach((zone, index) => {
-      const isSelected = selectedZone?.pageNum === currentPage && selectedZone?.index === index;
-      
-      ctx.fillStyle = isSelected ? 'rgba(59, 130, 246, 0.3)' : 'rgba(239, 68, 68, 0.3)';
-      ctx.fillRect(zone.x, zone.y, zone.width, zone.height);
-      ctx.strokeStyle = isSelected ? 'rgba(59, 130, 246, 0.8)' : 'rgba(239, 68, 68, 0.8)';
-      ctx.lineWidth = isSelected ? 3 : 2;
-      ctx.strokeRect(zone.x, zone.y, zone.width, zone.height);
-
-      if (isSelected) {
-        const handleSize = 8;
-        ctx.fillStyle = 'rgba(59, 130, 246, 1)';
-        
-        // Coins
-        ctx.fillRect(zone.x - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
-        
-        // Côtés
-        ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x + zone.width/2 - handleSize/2, zone.y + zone.height - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);
-        ctx.fillRect(zone.x + zone.width - handleSize/2, zone.y + zone.height/2 - handleSize/2, handleSize, handleSize);
+    function drawZones() {
+      overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+      const pageZones = zones[currentPage] || [];
+      pageZones.forEach(z => {
+        overlayCtx.fillStyle = 'rgba(239,68,68,0.3)';
+        overlayCtx.fillRect(z.x, z.y, z.w, z.h);
+        overlayCtx.strokeStyle = 'rgba(239,68,68,0.8)';
+        overlayCtx.strokeRect(z.x, z.y, z.w, z.h);
+      });
+      if (currentRect) {
+        overlayCtx.fillStyle = 'rgba(239,68,68,0.3)';
+        overlayCtx.fillRect(currentRect.x, currentRect.y, currentRect.w, currentRect.h);
       }
+    }
+
+    overlayCanvas.addEventListener('mousedown', e => {
+      const rect = overlayCanvas.getBoundingClientRect();
+      startPos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      isDrawing = true;
     });
 
-    if (currentRect) {
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
-      ctx.fillRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-      ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(currentRect.x, currentRect.y, currentRect.width, currentRect.height);
-    }
-  };
+    overlayCanvas.addEventListener('mousemove', e => {
+      if (!isDrawing) return;
+      const rect = overlayCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      currentRect = {
+        x: Math.min(startPos.x, x),
+        y: Math.min(startPos.y, y),
+        w: Math.abs(x - startPos.x),
+        h: Math.abs(y - startPos.y)
+      };
+      drawZones();
+    });
 
-  const getCanvasCoordinates = (e, canvas) => {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    
-    return { x, y };
-  };
+    overlayCanvas.addEventListener('mouseup', () => {
+      if (isDrawing && currentRect && currentRect.w > 5 && currentRect.h > 5) {
+        if (!zones[currentPage]) zones[currentPage] = [];
+        zones[currentPage].push(currentRect);
+      }
+      isDrawing = false;
+      currentRect = null;
+      drawZones();
+    });
 
-  const getResizeHandle = (x, y, zone) => {
-    const handleSize = 8;
-    const handles = {
-      'nw': { x: zone.x, y: zone.y },
-      'ne': { x: zone.x + zone.width, y: zone.y },
-      'sw': { x: zone.x, y: zone.y + zone.height },
-      'se': { x: zone.x + zone.width, y: zone.y + zone.height },
-      'n': { x: zone.x + zone.width/2, y: zone.y },
-      's': { x: zone.x + zone.width/2, y: zone.y + zone.height },
-      'w': { x: zone.x, y: zone.y + zone.height/2 },
-      'e': { x: zone.x + zone.width, y: zone.y + zone.height/2 }
+    document.getElementById('prevPage').onclick = () => {
+      if (currentPage > 1) { currentPage--; renderPage(currentPage); }
+    };
+    document.getElementById('nextPage').onclick = () => {
+      if (currentPage < totalPages) { currentPage++; renderPage(currentPage); }
     };
 
-    for (const [handle, pos] of Object.entries(handles)) {
-      if (Math.abs(x - pos.x) <= handleSize && Math.abs(y - pos.y) <= handleSize) {
-        return handle;
-      }
-    }
-    return null;
-  };
+    document.getElementById('clearZones').onclick = () => {
+      zones = {}; drawZones();
+    };
 
-  const isPointInZone = (x, y, zone) => {
-    return x >= zone.x && x <= zone.x + zone.width && y >= zone.y && y <= zone.y + zone.height;
-  };
-
-  const handleMouseDown = (e) => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
-
-    const { x, y } = getCanvasCoordinates(e, canvas);
-    const pageZones = zones[currentPage] || [];
-
-    for (let i = pageZones.length - 1; i >= 0; i--) {
-      const zone = pageZones[i];
-      
-      if (selectedZone?.pageNum === currentPage && selectedZone?.index === i) {
-        const handle = getResizeHandle(x, y, zone);
-        if (handle) {
-          setIsResizing(true);
-          setResizeHandle(handle);
-          setDragStart({ x, y, zone: { ...zone } });
-          return;
-        }
-      }
-
-      if (isPointInZone(x, y, zone)) {
-        setSelectedZone({ pageNum: currentPage, index: i });
-        setIsDragging(true);
-        setDragStart({ x, y, zone: { ...zone } });
-        return;
-      }
-    }
-
-    setSelectedZone(null);
-    setIsDrawing(true);
-    setStartPos({ x, y });
-    setCurrentRect(null);
-  };
-
-  const handleMouseMove = (e) => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
-
-    const { x, y } = getCanvasCoordinates(e, canvas);
-
-    if (isResizing && dragStart && selectedZone) {
-      const dx = x - dragStart.x;
-      const dy = y - dragStart.y;
-      const originalZone = dragStart.zone;
-      let newZone = { ...originalZone };
-
-      switch (resizeHandle) {
-        case 'se':
-          newZone.width = originalZone.width + dx;
-          newZone.height = originalZone.height + dy;
-          break;
-        case 'sw':
-          newZone.x = originalZone.x + dx;
-          newZone.width = originalZone.width - dx;
-          newZone.height = originalZone.height + dy;
-          break;
-        case 'ne':
-          newZone.width = originalZone.width + dx;
-          newZone.y = originalZone.y + dy;
-          newZone.height = originalZone.height - dy;
-          break;
-        case 'nw':
-          newZone.x = originalZone.x + dx;
-          newZone.y = originalZone.y + dy;
-          newZone.width = originalZone.width - dx;
-          newZone.height = originalZone.height - dy;
-          break;
-        case 'n':
-          newZone.y = originalZone.y + dy;
-          newZone.height = originalZone.height - dy;
-          break;
-        case 's':
-          newZone.height = originalZone.height + dy;
-          break;
-        case 'w':
-          newZone.x = originalZone.x + dx;
-          newZone.width = originalZone.width - dx;
-          break;
-        case 'e':
-          newZone.width = originalZone.width + dx;
-          break;
-      }
-
-      if (newZone.width > 10 && newZone.height > 10) {
-        const newZones = { ...zones };
-        newZones[currentPage][selectedZone.index] = newZone;
-        setZones(newZones);
-      }
-    } else if (isDragging && dragStart && selectedZone) {
-      const dx = x - dragStart.x;
-      const dy = y - dragStart.y;
-
-      const newZones = { ...zones };
-      const zone = { ...dragStart.zone };
-      zone.x += dx;
-      zone.y += dy;
-      newZones[currentPage][selectedZone.index] = zone;
-      setZones(newZones);
-      setDragStart({ x, y, zone });
-    } else if (isDrawing && startPos) {
-      const width = x - startPos.x;
-      const height = y - startPos.y;
-
-      setCurrentRect({
-        x: width > 0 ? startPos.x : x,
-        y: height > 0 ? startPos.y : y,
-        width: Math.abs(width),
-        height: Math.abs(height)
-      });
-    } else {
-      const pageZones = zones[currentPage] || [];
-      let cursor = 'crosshair';
-
-      for (let i = pageZones.length - 1; i >= 0; i--) {
-        const zone = pageZones[i];
-        
-        if (selectedZone?.pageNum === currentPage && selectedZone?.index === i) {
-          const handle = getResizeHandle(x, y, zone);
-          if (handle) {
-            const cursors = {
-              'nw': 'nw-resize', 'ne': 'ne-resize',
-              'sw': 'sw-resize', 'se': 'se-resize',
-              'n': 'n-resize', 's': 's-resize',
-              'w': 'w-resize', 'e': 'e-resize'
-            };
-            cursor = cursors[handle];
-            break;
-          }
-        }
-
-        if (isPointInZone(x, y, zone)) {
-          cursor = 'move';
-          break;
-        }
-      }
-
-      canvas.style.cursor = cursor;
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (currentRect && currentRect.width > 5 && currentRect.height > 5) {
-      const newZones = { ...zones };
-      if (!newZones[currentPage]) {
-        newZones[currentPage] = [];
-      }
-      newZones[currentPage].push(currentRect);
-      setZones(newZones);
-      setSelectedZone({ pageNum: currentPage, index: newZones[currentPage].length - 1 });
-    }
-    setIsDrawing(false);
-    setIsDragging(false);
-    setIsResizing(false);
-    setStartPos(null);
-    setCurrentRect(null);
-    setDragStart(null);
-    setResizeHandle(null);
-  };
-
-  const deleteSelectedZone = () => {
-    if (!selectedZone) return;
-    
-    const newZones = { ...zones };
-    newZones[selectedZone.pageNum].splice(selectedZone.index, 1);
-    if (newZones[selectedZone.pageNum].length === 0) {
-      delete newZones[selectedZone.pageNum];
-    }
-    setZones(newZones);
-    setSelectedZone(null);
-  };
-
-  const clearZonesCurrentPage = () => {
-    const newZones = { ...zones };
-    delete newZones[currentPage];
-    setZones(newZones);
-    setSelectedZone(null);
-  };
-
-  const clearAllZones = () => {
-    setZones({});
-    setSelectedZone(null);
-  };
-
-  const handleRemoveBlock = async () => {
-    if (!pdfFile || !libsLoaded) {
-      alert('Bibliothèques en cours de chargement, veuillez patienter...');
-      return;
-    }
-
-    if (Object.keys(zones).length === 0) {
-      alert('Veuillez dessiner au moins une zone à masquer');
-      return;
-    }
-
-    setProcessing(true);
-    
-    try {
-      const { PDFDocument, rgb } = window.PDFLib;
-      
-      const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdfDocument = await PDFDocument.load(arrayBuffer);
-      const pages = pdfDocument.getPages();
-      
-      for (let pageNum = 1; pageNum <= pages.length; pageNum++) {
-        const page = pages[pageNum - 1];
-        const { width, height } = page.getSize();
-        
-        let zonesToApply = [];
-        if (applyToAll && zones[1]) {
-          zonesToApply = zones[1];
-        } else if (zones[pageNum]) {
-          zonesToApply = zones[pageNum];
-        }
-
-        zonesToApply.forEach(zone => {
-          const pdfY = height - (zone.y / scale) - (zone.height / scale);
-          
-          page.drawRectangle({
+    document.getElementById('downloadPDF').onclick = async () => {
+      const { PDFDocument, rgb } = PDFLib;
+      const original = await pdfDoc.getData();
+      const pdf = await PDFDocument.load(original);
+      const pages = pdf.getPages();
+      pages.forEach((p, i) => {
+        const { width, height } = p.getSize();
+        const z = zones[i + 1] || [];
+        z.forEach(zone => {
+          const pdfY = height - (zone.y / scale) - (zone.h / scale);
+          p.drawRectangle({
             x: zone.x / scale,
             y: pdfY,
-            width: zone.width / scale,
-            height: zone.height / scale,
+            width: zone.w / scale,
+            height: zone.h / scale,
             color: rgb(1, 1, 1),
           });
         });
-      }
-      
-      const pdfBytes = await pdfDocument.save();
+      });
+      const pdfBytes = await pdf.save();
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-      const blobUrl = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = blobUrl;
-      a.download = pdfFile.name.replace('.pdf', '') + '_modifie.pdf';
-      
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
-        }
-      }, 1000);
-      
-      setProcessing(false);
-      alert('✓ PDF téléchargé avec succès !');
-      
-    } catch (error) {
-      console.error('Erreur complète:', error);
-      setProcessing(false);
-      alert('Erreur: ' + error.message);
-    }
-  };
-
-  const resetFile = () => {
-    setPdfFile(null);
-    setPdfDoc(null);
-    setTotalPages(0);
-    setCurrentPage(1);
-    setZones({});
-    setSelectedZone(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">
-              Éditeur PDF Avancé
-            </h1>
-            <p className="text-gray-600">
-              Masquez n'importe quelle zone - Déplacez et redimensionnez facilement
-            </p>
-          </div>
-
-          {!libsLoaded && (
-            <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
-              <p className="text-yellow-800">Chargement des bibliothèques...</p>
-            </div>
-          )}
-
-          <div className="mb-8">
-            {!pdfFile ? (
-              <div
-                onClick={() => libsLoaded && fileInputRef.current?.click()}
-                className={`border-3 border-dashed border-indigo-300 rounded-xl p-12 text-center transition-all ${
-                  libsLoaded 
-                    ? 'cursor-pointer hover:border-indigo-500 hover:bg-indigo-50' 
-                    : 'opacity-50 cursor-not-allowed'
-                }`}
-              >
-                <Upload className="w-16 h-16 mx-auto mb-4 text-indigo-400" />
-                <p className="text-lg font-medium text-gray-700 mb-2">
-                  {libsLoaded ? 'Cliquez pour charger votre PDF' : 'Chargement...'}
-                </p>
-                <p className="text-sm text-gray-500">
-                  Le fichier reste sur votre ordinateur
-                </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  disabled={!libsLoaded}
-                />
-              </div>
-            ) : (
-              <div className="bg-green-50 border-2 border-green-300 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="bg-green-500 rounded-lg p-3 mr-4">
-                      <Upload className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-800">{pdfFile.name}</p>
-                      <p className="text-sm text-gray-600">
-                        {(pdfFile.size / 1024 / 1024).toFixed(2)} MB • {totalPages} pages
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={resetFile}
-                    className="text-red-500 hover:text-red-700 p-2"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {pdfFile && pdfDoc && (
-            <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-                <div className="flex items-start mb-4">
-                  <Move className="w-5 h-5 text-blue-600 mr-2 mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800 mb-2">
-                      Instructions
-                    </h3>
-                    <ul className="text-sm text-gray-600 space-y-1">
-                      <li>• <strong>Dessiner</strong> : Cliquez et glissez pour créer une zone (rouge)</li>
-                      <li>• <strong>Sélectionner</strong> : Cliquez sur une zone pour la sélectionner (bleue)</li>
-                      <li>• <strong>Déplacer</strong> : Glissez une zone sélectionnée</li>
-                      <li>• <strong>Redimensionner</strong> : Tirez sur les poignées bleues aux coins et bords</li>
-                      <li>• <strong>Supprimer</strong> : Sélectionnez puis appuyez sur le bouton Suppr ou utilisez le bouton</li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mt-4 flex-wrap">
-                  <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={applyToAll}
-                      onChange={(e) => setApplyToAll(e.target.checked)}
-                      className="w-4 h-4 text-indigo-600 rounded mr-2"
-                    />
-                    <span className="text-sm text-gray-700">
-                      Appliquer les zones de la page 1 à toutes les pages
-                    </span>
-                  </label>
-                </div>
-
-                <div className="flex gap-2 mt-4 flex-wrap">
-                  {selectedZone && (
-                    <button
-                      onClick={deleteSelectedZone}
-                      className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Supprimer zone sélectionnée
-                    </button>
-                  )}
-                  <button
-                    onClick={clearZonesCurrentPage}
-                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
-                  >
-                    <Eraser className="w-4 h-4" />
-                    Effacer page {currentPage}
-                  </button>
-                  <button
-                    onClick={clearAllZones}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Tout effacer
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center">
-                    <Eye className="w-5 h-5 text-gray-600 mr-2" />
-                    <h3 className="font-semibold text-gray-800">
-                      Aperçu - {zones[currentPage]?.length || 0} zone(s)
-                      {selectedZone?.pageNum === currentPage && <span className="text-blue-600"> (1 sélectionnée)</span>}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <span className="text-sm text-gray-600 min-w-20 text-center">
-                      Page {currentPage} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-white rounded-lg overflow-auto flex justify-center" style={{maxHeight: '600px'}}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
-                    <canvas ref={canvasRef} className="max-w-full" />
-                    <canvas
-                      ref={overlayCanvasRef}
-                      className="max-w-full"
-                      style={{ position: 'absolute', top: 0, left: 0, cursor: 'crosshair' }}
-                      onMouseDown={handleMouseDown}
-                      onMouseMove={handleMouseMove}
-                      onMouseUp={handleMouseUp}
-                      onMouseLeave={handleMouseUp}
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Zone rouge = nouvelle zone • Zone bleue = sélectionnée (déplaçable et redimensionnable)
-                </p>
-              </div>
-
-              <button
-                onClick={handleRemoveBlock}
-                disabled={processing || !libsLoaded || Object.keys(zones).length === 0}
-                className={`w-full py-4 rounded-xl font-semibold text-white transition-all flex items-center justify-center ${
-                  processing || !libsLoaded || Object.keys(zones).length === 0
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-xl'
-                }`}
-              >
-                {processing ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3" />
-                    Traitement en cours...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5 mr-2" />
-                    Masquer les zones et télécharger
-                  </>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>🔒 Votre fichier est traité localement dans votre navigateur</p>
-          <p>Aucune donnée n'est envoyée sur internet</p>
-        </div>
-      </div>
-    </div>
-  );
-}
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'modifie.pdf';
+      link.click();
+    };
+  </script>
+</body>
+</html>
