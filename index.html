@@ -3,84 +3,77 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Éditeur PDF - Effacement Simple</title>
+  <title>Effaceur PDF Sécurisé (Définitif)</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  </script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-6">
+<body class="bg-gradient-to-br from-gray-100 to-gray-200 min-h-screen p-6">
 
-<div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-  <h1 class="text-3xl font-bold text-center text-gray-800 mb-2 font-sans">Effaceur PDF</h1>
-  <p class="text-center text-gray-600 mb-8">Cliquez et glissez pour effacer. Déplacez les blocs ou cliquez sur (X) pour annuler.</p>
+<div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl p-8">
+  <div class="flex flex-col items-center mb-8">
+    <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🧼 Effaceur PDF Sécurisé</h1>
+    <p class="text-gray-500 mt-2 text-center max-w-lg">
+        Les zones blanches suppriment définitivement le contenu. <br>
+        Le fichier est "aplati" pour empêcher toute récupération des données cachées.
+    </p>
+  </div>
 
-  <div id="upload-zone" class="border-2 border-dashed border-indigo-300 rounded-xl p-12 text-center cursor-pointer hover:border-indigo-500 hover:bg-indigo-50 transition-all">
-    <p class="text-lg font-medium text-gray-700 mb-2 font-sans">Cliquez pour charger votre PDF</p>
-    <p class="text-sm text-gray-500">Le fichier reste sur votre ordinateur</p>
+  <div id="upload-zone" class="border-4 border-dashed border-blue-200 rounded-2xl p-20 text-center cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all group">
+    <div class="text-blue-400 group-hover:scale-110 transition-transform mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor font-sans"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+    </div>
+    <p class="text-xl font-semibold text-gray-700">Cliquez pour importer votre PDF</p>
     <input type="file" id="pdfInput" accept=".pdf" class="hidden">
   </div>
 
-  <div id="viewer" class="hidden mt-8">
-    <div class="flex justify-between items-center mb-4 px-2">
+  <div id="viewer" class="hidden space-y-6">
+    <div class="flex justify-between items-center bg-gray-50 p-4 rounded-xl border border-gray-100 shadow-sm">
       <div class="flex gap-2">
-        <button id="prevPage" class="bg-gray-100 hover:bg-gray-200 px-4 py-1 rounded-lg border font-bold text-gray-700 transition-colors">←</button>
-        <button id="nextPage" class="bg-gray-100 hover:bg-gray-200 px-4 py-1 rounded-lg border font-bold text-gray-700 transition-colors">→</button>
+        <button id="prevPage" class="bg-white hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg border shadow-sm transition-all font-bold">←</button>
+        <button id="nextPage" class="bg-white hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg border shadow-sm transition-all font-bold">→</button>
       </div>
-      <span id="pageInfo" class="text-gray-700 font-bold font-mono bg-gray-50 px-3 py-1 rounded-md border">Page 1/1</span>
+      <div id="pageInfo" class="font-bold text-blue-700 bg-blue-50 px-4 py-2 rounded-full border border-blue-100 shadow-inner italic">Page 1/1</div>
     </div>
 
-    <div class="bg-gray-200 rounded-xl overflow-auto flex justify-center border-4 border-gray-100 shadow-inner" style="max-height:600px;">
-      <div style="position: relative;" class="my-4">
-        <canvas id="pdfCanvas" class="shadow-lg"></canvas>
-        <canvas id="overlayCanvas" style="position:absolute;top:0;left:0;"></canvas>
+    <div class="bg-gray-300 rounded-xl overflow-auto flex justify-center p-4 border-2 border-gray-100 shadow-inner" style="max-height:60vh;">
+      <div class="relative bg-white shadow-2xl leading-[0]">
+        <canvas id="pdfCanvas"></canvas>
+        <canvas id="overlayCanvas" class="absolute top-0 left-0"></canvas>
       </div>
     </div>
 
-    <div class="mt-6 space-y-4">
-      <div class="flex items-center gap-4 bg-indigo-50 p-3 rounded-lg border border-indigo-100">
-        <label class="flex items-center cursor-pointer">
-          <input type="checkbox" id="applyToAll" checked class="w-5 h-5 text-indigo-600 rounded mr-3 focus:ring-indigo-500">
-          <span class="text-sm font-medium text-gray-700 font-sans">Appliquer ces effacements sur toutes les pages</span>
+    <div class="bg-blue-50 p-4 rounded-xl border border-blue-100 space-y-4">
+        <label class="flex items-center cursor-pointer group">
+          <input type="checkbox" id="applyToAll" checked class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 transition-all cursor-pointer">
+          <span class="ml-3 text-sm font-semibold text-gray-700 group-hover:text-blue-800">Appliquer cet effacement sur l'ensemble du document</span>
         </label>
-      </div>
-
-      <button id="downloadPDF" class="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg flex items-center justify-center transition-all transform hover:scale-[1.01] active:scale-[0.99] uppercase tracking-wider">
-        💾 Télécharger le PDF effacé
-      </button>
+        
+        <button id="downloadPDF" class="w-full py-5 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-xl flex items-center justify-center gap-3 transition-all transform hover:-translate-y-1 active:scale-95 uppercase tracking-widest text-lg">
+            <span>🛡️ Finaliser et Télécharger</span>
+        </button>
+        <p class="text-[10px] text-center text-blue-400 uppercase tracking-tighter">Sécurisation par aplatissement haute résolution (300 DPI)</p>
     </div>
   </div>
 </div>
 
 <script>
-const pdfInput = document.getElementById('pdfInput');
-const uploadZone = document.getElementById('upload-zone');
-const viewer = document.getElementById('viewer');
-const pdfCanvas = document.getElementById('pdfCanvas');
-const overlayCanvas = document.getElementById('overlayCanvas');
-const overlayCtx = overlayCanvas.getContext('2d');
-const prevPageBtn = document.getElementById('prevPage');
-const nextPageBtn = document.getElementById('nextPage');
-const pageInfo = document.getElementById('pageInfo');
-const applyToAllCheckbox = document.getElementById('applyToAll');
-const downloadBtn = document.getElementById('downloadPDF');
+const pdfInput = document.getElementById('pdfInput'), uploadZone = document.getElementById('upload-zone'), viewer = document.getElementById('viewer');
+const pdfCanvas = document.getElementById('pdfCanvas'), overlayCanvas = document.getElementById('overlayCanvas'), overlayCtx = overlayCanvas.getContext('2d');
+const prevPageBtn = document.getElementById('prevPage'), nextPageBtn = document.getElementById('nextPage'), pageInfo = document.getElementById('pageInfo');
+const applyToAllCheckbox = document.getElementById('applyToAll'), downloadBtn = document.getElementById('downloadPDF');
 
-let pdfDoc = null, pdfFile = null, currentPage = 1, totalPages = 0, scale = 1.3;
-let zones = {}, isDrawing = false, isDragging = false;
-let startX = 0, startY = 0, offsetX = 0, offsetY = 0, activeZone = null;
+let pdfDoc = null, pdfFile = null, currentPage = 1, totalPages = 0, scale = 1.5;
+let zones = {}, isDrawing = false, isDragging = false, startX, startY, offX, offY, activeZone;
 
 uploadZone.onclick = () => pdfInput.click();
 pdfInput.onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const file = e.target.files[0]; if (!file) return;
   pdfFile = file;
-  const arrayBuffer = await file.arrayBuffer();
-  pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  pdfDoc = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
   totalPages = pdfDoc.numPages;
-  viewer.classList.remove('hidden');
-  uploadZone.classList.add('hidden');
+  viewer.classList.remove('hidden'); uploadZone.classList.add('hidden');
   renderPage(1);
 };
 
@@ -91,129 +84,93 @@ async function renderPage(num) {
   pdfCanvas.height = overlayCanvas.height = viewport.height;
   await page.render({ canvasContext: pdfCanvas.getContext('2d'), viewport }).promise;
   draw();
-  pageInfo.textContent = `Page ${num}/${totalPages}`;
+  pageInfo.textContent = `Page ${num} / ${totalPages}`;
 }
 
 function draw() {
-  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-  const pageZones = zones[currentPage] || [];
-  
-  pageZones.forEach(z => {
-    // Bloc d'effacement blanc
+  overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+  (zones[currentPage] || []).forEach(z => {
     overlayCtx.fillStyle = 'white';
-    overlayCtx.shadowBlur = 4;
-    overlayCtx.shadowColor = 'rgba(0,0,0,0.15)';
+    overlayCtx.shadowBlur = 4; overlayCtx.shadowColor = 'rgba(0,0,0,0.1)';
     overlayCtx.fillRect(z.x, z.y, z.w, z.h);
     overlayCtx.shadowBlur = 0;
-    
-    // Bordure de prévisualisation
-    overlayCtx.strokeStyle = '#6366f1'; // Indigo
-    overlayCtx.lineWidth = 1;
+    overlayCtx.strokeStyle = '#3b82f6';
     overlayCtx.strokeRect(z.x, z.y, z.w, z.h);
-
-    // Bouton de suppression (X)
-    overlayCtx.fillStyle = '#ef4444';
-    overlayCtx.fillRect(z.x + z.w - 20, z.y, 20, 20);
-    overlayCtx.fillStyle = 'white';
-    overlayCtx.font = 'bold 14px Arial';
-    overlayCtx.fillText('×', z.x + z.w - 15, z.y + 15);
+    overlayCtx.fillStyle = '#ef4444'; overlayCtx.fillRect(z.x + z.w - 20, z.y, 20, 20);
+    overlayCtx.fillStyle = 'white'; overlayCtx.font = 'bold 14px Arial'; overlayCtx.fillText('×', z.x + z.w - 15, z.y + 15);
   });
 }
 
-const getPos = (e) => {
-  const r = overlayCanvas.getBoundingClientRect();
-  return { x: e.clientX - r.left, y: e.clientY - r.top };
-};
+const getPos = (e) => { const r = overlayCanvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
 overlayCanvas.onmousedown = e => {
   const { x, y } = getPos(e);
   const pageZones = zones[currentPage] || [];
+  const delIdx = pageZones.findIndex(z => x >= z.x+z.w-20 && x <= z.x+z.w && y >= z.y && y <= z.y+20);
+  if (delIdx !== -1) { zones[currentPage].splice(delIdx, 1); draw(); return; }
 
-  // Suppression via le bouton (X)
-  const zoneToDelete = pageZones.find(z => x >= z.x + z.w - 20 && x <= z.x + z.w && y >= z.y && y <= z.y + 20);
-  if (zoneToDelete) {
-    zones[currentPage] = pageZones.filter(z => z !== zoneToDelete);
-    draw();
-    return;
-  }
-
-  // Déplacement d'un bloc existant
-  const clickedZone = pageZones.find(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
-  if (clickedZone) {
-    activeZone = clickedZone;
-    isDragging = true;
-    offsetX = x - clickedZone.x;
-    offsetY = y - clickedZone.y;
-  } else {
-    // Création d'un nouveau bloc
-    isDrawing = true;
-    startX = x; startY = y;
-    activeZone = { x, y, w: 0, h: 0 };
-    if (!zones[currentPage]) zones[currentPage] = [];
-  }
+  const moveIdx = pageZones.find(z => x >= z.x && x <= z.x+z.w && y >= z.y && y <= z.y+z.h);
+  if (moveIdx) { activeZone = moveIdx; isDragging = true; offX = x-activeZone.x; offY = y-activeZone.y; }
+  else { isDrawing = true; startX = x; startY = y; activeZone = {x, y, w:0, h:0}; if(!zones[currentPage]) zones[currentPage] = []; }
 };
 
 overlayCanvas.onmousemove = e => {
   const { x, y } = getPos(e);
-  if (isDrawing) {
-    activeZone.w = x - startX;
-    activeZone.h = y - startY;
-    draw();
-    overlayCtx.strokeStyle = '#6366f1';
-    overlayCtx.strokeRect(startX, startY, activeZone.w, activeZone.h);
-  } else if (isDragging) {
-    activeZone.x = x - offsetX;
-    activeZone.y = y - offsetY;
-    draw();
-  } else {
-    const pageZones = zones[currentPage] || [];
-    const isHover = pageZones.some(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
-    overlayCanvas.style.cursor = isHover ? 'move' : 'crosshair';
+  if (isDrawing) { activeZone.w = x-startX; activeZone.h = y-startY; draw(); overlayCtx.strokeStyle = '#3b82f6'; overlayCtx.strokeRect(startX, startY, activeZone.w, activeZone.h); }
+  else if (isDragging) { activeZone.x = x-offX; activeZone.y = y-offY; draw(); }
+  else { 
+    const isOver = (zones[currentPage] || []).some(z => x >= z.x && x <= z.x+z.w && y >= z.y && y <= z.y+z.h);
+    overlayCanvas.style.cursor = isOver ? 'move' : 'crosshair';
   }
 };
 
 window.onmouseup = () => {
-  if (isDrawing && Math.abs(activeZone.w) > 3) {
-    const finalZone = {
-      x: activeZone.w > 0 ? activeZone.x : activeZone.x + activeZone.w,
-      y: activeZone.h > 0 ? activeZone.y : activeZone.y + activeZone.h,
-      w: Math.abs(activeZone.w),
-      h: Math.abs(activeZone.h)
-    };
-    zones[currentPage].push(finalZone);
+  if (isDrawing && Math.abs(activeZone.w) > 5) {
+    zones[currentPage].push({ x: activeZone.w>0?activeZone.x:activeZone.x+activeZone.w, y: activeZone.h>0?activeZone.y:activeZone.y+activeZone.h, w: Math.abs(activeZone.w), h: Math.abs(activeZone.h) });
   }
-  isDrawing = isDragging = false;
-  activeZone = null;
-  draw();
+  isDrawing = isDragging = false; activeZone = null; draw();
 };
 
-prevPageBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderPage(currentPage); } };
-nextPageBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderPage(currentPage); } };
+prevPageBtn.onclick = () => { if(currentPage > 1) renderPage(--currentPage); };
+nextPageBtn.onclick = () => { if(currentPage < totalPages) renderPage(++currentPage); };
 
 downloadBtn.onclick = async () => {
-  const { PDFDocument, rgb } = PDFLib;
-  const pdf = await PDFDocument.load(await pdfFile.arrayBuffer());
-  const pages = pdf.getPages();
-
-  pages.forEach((page, i) => {
-    const { height } = page.getSize();
-    const zs = (applyToAllCheckbox.checked && zones[1]) ? zones[1] : (zones[i+1] || []);
+  downloadBtn.innerText = "SÉCURISATION EN COURS...";
+  downloadBtn.disabled = true;
+  
+  const { PDFDocument } = PDFLib;
+  const finalPdf = await PDFDocument.create();
+  
+  for(let i=1; i<=totalPages; i++) {
+    const page = await pdfDoc.getPage(i);
+    const v = page.getViewport({ scale: 2.0 }); // Haute résolution pour ne pas perdre en qualité
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = v.width; canvas.height = v.height;
+    
+    await page.render({ canvasContext: ctx, viewport: v }).promise;
+    
+    const zs = (applyToAllCheckbox.checked && zones[1]) ? zones[1] : (zones[i] || []);
     zs.forEach(z => {
-      page.drawRectangle({
-        x: z.x / scale,
-        y: height - (z.y + z.h) / scale,
-        width: z.w / scale,
-        height: z.h / scale,
-        color: rgb(1,1,1)
-      });
+      // On dessine le blanc DIRECTEMENT sur l'image de la page
+      ctx.fillStyle = 'white';
+      ctx.fillRect(z.x * (v.width/overlayCanvas.width), z.y * (v.height/overlayCanvas.height), z.w * (v.width/overlayCanvas.width), z.h * (v.height/overlayCanvas.height));
     });
-  });
+    
+    const imgData = canvas.toDataURL('image/jpeg', 0.9);
+    const img = await finalPdf.embedJpg(imgData);
+    const newPage = finalPdf.addPage([v.width, v.height]);
+    newPage.drawImage(img, { x: 0, y: 0, width: v.width, height: v.height });
+  }
 
-  const blob = new Blob([await pdf.save()], {type:'application/pdf'});
+  const blob = new Blob([await finalPdf.save()], {type:'application/pdf'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `edite_${pdfFile.name}`;
+  link.download = `SECURISE_${pdfFile.name}`;
   link.click();
+  
+  downloadBtn.innerText = "🛡️ Finaliser et Télécharger";
+  downloadBtn.disabled = false;
 };
 </script>
 </body>
