@@ -3,72 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Effaceur PDF Rapide</title>
+  <title>Effaceur PDF Simple</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
+<body class="bg-gray-100 min-h-screen flex flex-col items-center p-4">
 
-<div class="max-w-5xl mx-auto p-4 md:p-8">
-  <header class="mb-8 text-center">
-    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Effaceur PDF</h1>
-    <p class="text-gray-500 mt-2">Dessinez des zones pour masquer le contenu. Tout se passe dans votre navigateur.</p>
-  </header>
+  <div class="w-full max-w-4xl bg-white rounded-xl shadow-lg p-6">
+    <h1 class="text-xl font-bold text-gray-800 mb-4 tracking-tight">🧼 Effaceur PDF</h1>
 
-  <div id="upload-zone" class="bg-white border-2 border-dashed border-blue-300 rounded-3xl p-16 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all shadow-sm">
-    <div class="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-      <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    <div id="upload-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-10 text-center cursor-pointer hover:bg-gray-50 transition-all">
+      <p class="text-gray-600 font-medium font-sans">Sélectionnez le PDF à nettoyer</p>
+      <input type="file" id="pdfInput" accept=".pdf" class="hidden">
     </div>
-    <p class="text-xl font-semibold text-gray-700">Cliquez pour choisir un PDF</p>
-    <input type="file" id="pdfInput" accept=".pdf" class="hidden">
-  </div>
 
-  <div id="viewer" class="hidden space-y-4">
-    <div class="flex flex-wrap items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4">
-      <div class="flex items-center gap-4">
-        <div class="flex items-center border rounded-lg bg-gray-50 p-1">
-          <button id="prevPage" class="p-2 hover:bg-white rounded-md transition-all">←</button>
-          <span id="pageInfo" class="px-4 text-sm font-bold text-gray-600 min-w-[90px] text-center">Page 1/1</span>
-          <button id="nextPage" class="p-2 hover:bg-white rounded-md transition-all">→</button>
+    <div id="viewer" class="hidden">
+      <div class="flex justify-between items-center bg-gray-50 p-3 rounded-t-lg border border-gray-200 mt-4">
+        <div class="flex items-center gap-4">
+          <div class="flex gap-1">
+            <button id="prevPage" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">←</button>
+            <button id="nextPage" class="px-3 py-1 bg-white border rounded hover:bg-gray-100">→</button>
+          </div>
+          <span id="pageInfo" class="text-sm font-bold text-gray-700">Page 1/1</span>
         </div>
+        <p class="text-xs text-gray-500 italic">Astuce : Glissez pour effacer, déplacez les blocs, ou cliquez sur (X) pour annuler.</p>
+      </div>
+
+      <div class="bg-gray-200 border border-t-0 border-gray-200 overflow-auto flex justify-center p-4" style="max-height: 65vh;">
+        <div class="relative shadow-xl bg-white leading-[0]">
+          <canvas id="pdfCanvas"></canvas>
+          <canvas id="overlayCanvas" class="absolute top-0 left-0"></canvas>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
+        <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <input type="checkbox" id="applyToAll" checked class="rounded text-blue-600 focus:ring-blue-500">
+          <span>Appliquer ces zones sur tout le document</span>
+        </label>
         
-        <select id="maskType" class="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-lg p-2 outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="white">Style : Effacer (Blanc)</option>
-          <option value="black">Style : Caviarder (Noir)</option>
-        </select>
-      </div>
-
-      <div class="flex items-center gap-2 text-sm text-gray-600">
-        <input type="checkbox" id="applyToAll" checked class="w-4 h-4 text-blue-600 rounded">
-        <label for="applyToAll" class="cursor-pointer">Appliquer page 1 à tout le document</label>
-      </div>
-    </div>
-
-    <div class="bg-gray-200 rounded-2xl overflow-auto flex justify-center p-4 border border-gray-300 shadow-inner" style="max-height: 70vh;">
-      <div class="relative shadow-2xl bg-white leading-[0]">
-        <canvas id="pdfCanvas"></canvas>
-        <canvas id="overlayCanvas" class="absolute top-0 left-0 cursor-crosshair"></canvas>
-      </div>
-    </div>
-
-    <div class="flex flex-wrap justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-      <div class="flex gap-2">
-        <button id="deleteZone" class="hidden flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition-all font-medium border border-red-200">
-          <span>🗑️ Supprimer sélection</span>
-        </button>
-        <button id="clearAllZones" class="px-4 py-2 text-gray-500 hover:text-red-600 text-sm font-medium transition-colors">
-          Effacer tout
+        <button id="downloadPDF" class="w-full sm:w-auto px-8 py-3 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 shadow-md transition-all uppercase text-sm tracking-wider">
+          Télécharger le PDF final
         </button>
       </div>
-      
-      <button id="downloadPDF" class="flex items-center gap-2 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all transform hover:-translate-y-0.5">
-        💾 Télécharger le PDF modifié
-      </button>
     </div>
   </div>
-</div>
 
 <script>
 const pdfInput = document.getElementById('pdfInput');
@@ -81,19 +62,16 @@ const prevPageBtn = document.getElementById('prevPage');
 const nextPageBtn = document.getElementById('nextPage');
 const pageInfo = document.getElementById('pageInfo');
 const applyToAllCheckbox = document.getElementById('applyToAll');
-const deleteBtn = document.getElementById('deleteZone');
-const clearAllBtn = document.getElementById('clearAllZones');
 const downloadBtn = document.getElementById('downloadPDF');
-const maskType = document.getElementById('maskType');
 
-let pdfDoc = null, pdfFile = null, currentPage = 1, totalPages = 0, scale = 1.5;
-let zones = {}, selectedZone = null, isDrawing = false, isDragging = false;
-let startX = 0, startY = 0, offsetX = 0, offsetY = 0, currentRect = null;
+let pdfDoc = null, pdfFile = null, currentPage = 1, totalPages = 0, scale = 1.3;
+let zones = {}, isDrawing = false, isDragging = false;
+let startX = 0, startY = 0, offsetX = 0, offsetY = 0, activeZone = null;
 
-uploadZone.addEventListener('click', () => pdfInput.click());
-pdfInput.addEventListener('change', async (e) => {
+uploadZone.onclick = () => pdfInput.click();
+pdfInput.onchange = async (e) => {
   const file = e.target.files[0];
-  if (!file || file.type !== 'application/pdf') return;
+  if (!file) return;
   pdfFile = file;
   const arrayBuffer = await file.arrayBuffer();
   pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -101,7 +79,7 @@ pdfInput.addEventListener('change', async (e) => {
   viewer.classList.remove('hidden');
   uploadZone.classList.add('hidden');
   renderPage(1);
-});
+};
 
 async function renderPage(num) {
   const page = await pdfDoc.getPage(num);
@@ -109,104 +87,127 @@ async function renderPage(num) {
   pdfCanvas.width = overlayCanvas.width = viewport.width;
   pdfCanvas.height = overlayCanvas.height = viewport.height;
   await page.render({ canvasContext: pdfCanvas.getContext('2d'), viewport }).promise;
-  drawZones();
-  pageInfo.textContent = `Page ${num}/${totalPages}`;
+  draw();
 }
 
-function drawZones() {
-  overlayCtx.clearRect(0,0,overlayCanvas.width, overlayCanvas.height);
+function draw() {
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   const pageZones = zones[currentPage] || [];
+  
   pageZones.forEach(z => {
-    overlayCtx.fillStyle = z === selectedZone ? 'rgba(59,130,246,0.4)' : 'rgba(0,0,0,0.2)';
+    // Le bloc d'effacement
+    overlayCtx.fillStyle = 'white';
+    overlayCtx.shadowBlur = 4;
+    overlayCtx.shadowColor = 'rgba(0,0,0,0.2)';
     overlayCtx.fillRect(z.x, z.y, z.w, z.h);
-    overlayCtx.strokeStyle = z === selectedZone ? '#3b82f6' : '#9ca3af';
-    overlayCtx.setLineDash(z === selectedZone ? [] : [5, 5]);
-    overlayCtx.lineWidth = 2;
+    overlayCtx.shadowBlur = 0;
+    
+    // Bordure fine
+    overlayCtx.strokeStyle = '#3b82f6';
+    overlayCtx.lineWidth = 1;
     overlayCtx.strokeRect(z.x, z.y, z.w, z.h);
+
+    // Bouton de suppression (X)
+    overlayCtx.fillStyle = '#ef4444';
+    overlayCtx.fillRect(z.x + z.w - 18, z.y, 18, 18);
+    overlayCtx.fillStyle = 'white';
+    overlayCtx.font = 'bold 12px Arial';
+    overlayCtx.fillText('X', z.x + z.w - 13, z.y + 13);
   });
-  deleteBtn.classList.toggle('hidden', !selectedZone);
+  pageInfo.textContent = `Page ${currentPage}/${totalPages}`;
 }
 
-const getMousePos = (e) => {
-  const rect = overlayCanvas.getBoundingClientRect();
-  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+const getPos = (e) => {
+  const r = overlayCanvas.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
 };
 
-overlayCanvas.addEventListener('mousedown', e => {
-  const { x, y } = getMousePos(e);
+overlayCanvas.onmousedown = e => {
+  const { x, y } = getPos(e);
   const pageZones = zones[currentPage] || [];
-  let clicked = pageZones.find(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
 
-  if (clicked) {
-    selectedZone = clicked;
+  // 1. Vérifier si on clique sur le (X) pour supprimer
+  const zoneToDelete = pageZones.find(z => x >= z.x + z.w - 18 && x <= z.x + z.w && y >= z.y && y <= z.y + 18);
+  if (zoneToDelete) {
+    zones[currentPage] = pageZones.filter(z => z !== zoneToDelete);
+    draw();
+    return;
+  }
+
+  // 2. Vérifier si on clique dans une zone pour déplacer
+  const clickedZone = pageZones.find(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
+  if (clickedZone) {
+    activeZone = clickedZone;
     isDragging = true;
-    offsetX = x - clicked.x; offsetY = y - clicked.y;
+    offsetX = x - clickedZone.x;
+    offsetY = y - clickedZone.y;
+    overlayCanvas.style.cursor = 'move';
   } else {
-    selectedZone = null;
+    // 3. Sinon, on dessine une nouvelle zone
     isDrawing = true;
     startX = x; startY = y;
-    currentRect = { x, y, w:0, h:0 };
+    activeZone = { x, y, w: 0, h: 0 };
     if (!zones[currentPage]) zones[currentPage] = [];
+    overlayCanvas.style.cursor = 'crosshair';
   }
-  drawZones();
-});
+};
 
-overlayCanvas.addEventListener('mousemove', e => {
-  const { x, y } = getMousePos(e);
+overlayCanvas.onmousemove = e => {
+  const { x, y } = getPos(e);
+  
   if (isDrawing) {
-    currentRect.w = x - startX; currentRect.h = y - startY;
-    drawZones();
+    activeZone.w = x - startX;
+    activeZone.h = y - startY;
+    draw();
     overlayCtx.strokeStyle = '#3b82f6';
-    overlayCtx.strokeRect(startX, startY, currentRect.w, currentRect.h);
-  } else if (isDragging && selectedZone) {
-    selectedZone.x = x - offsetX; selectedZone.y = y - offsetY;
-    drawZones();
+    overlayCtx.strokeRect(startX, startY, activeZone.w, activeZone.h);
+  } else if (isDragging) {
+    activeZone.x = x - offsetX;
+    activeZone.y = y - offsetY;
+    draw();
+  } else {
+    // Change le curseur au survol
+    const pageZones = zones[currentPage] || [];
+    const isHover = pageZones.some(z => x >= z.x && x <= z.x + z.w && y >= z.y && y <= z.y + z.h);
+    overlayCanvas.style.cursor = isHover ? 'pointer' : 'crosshair';
   }
-});
+};
 
-overlayCanvas.addEventListener('mouseup', () => {
+window.onmouseup = () => {
   if (isDrawing) {
-    if (Math.abs(currentRect.w) > 5 && Math.abs(currentRect.h) > 5) {
-      const newZone = { 
-        x: currentRect.w > 0 ? currentRect.x : currentRect.x + currentRect.w,
-        y: currentRect.h > 0 ? currentRect.y : currentRect.y + currentRect.h,
-        w: Math.abs(currentRect.w), h: Math.abs(currentRect.h) 
+    if (Math.abs(activeZone.w) > 5) {
+      const finalZone = {
+        x: activeZone.w > 0 ? activeZone.x : activeZone.x + activeZone.w,
+        y: activeZone.h > 0 ? activeZone.y : activeZone.y + activeZone.h,
+        w: Math.abs(activeZone.w),
+        h: Math.abs(activeZone.h)
       };
-      zones[currentPage].push(newZone);
-      selectedZone = newZone;
+      zones[currentPage].push(finalZone);
     }
-    isDrawing = false;
   }
-  isDragging = false;
-  drawZones();
-});
+  isDrawing = isDragging = false;
+  activeZone = null;
+  draw();
+};
 
-deleteBtn.addEventListener('click', () => {
-  zones[currentPage] = zones[currentPage].filter(z => z !== selectedZone);
-  selectedZone = null;
-  drawZones();
-});
+prevPageBtn.onclick = () => { if (currentPage > 1) { currentPage--; renderPage(currentPage); } };
+nextPageBtn.onclick = () => { if (currentPage < totalPages) { currentPage++; renderPage(currentPage); } };
 
-clearAllBtn.addEventListener('click', () => { if(confirm("Tout effacer ?")) { zones = {}; selectedZone = null; drawZones(); } });
-prevPageBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; selectedZone=null; renderPage(currentPage); } });
-nextPageBtn.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; selectedZone=null; renderPage(currentPage); } });
-
-downloadBtn.addEventListener('click', async () => {
+downloadBtn.onclick = async () => {
   const { PDFDocument, rgb } = PDFLib;
   const pdf = await PDFDocument.load(await pdfFile.arrayBuffer());
   const pages = pdf.getPages();
-  const color = maskType.value === 'white' ? rgb(1,1,1) : rgb(0,0,0);
 
   pages.forEach((page, i) => {
     const { height } = page.getSize();
-    const zonesToApply = (applyToAllCheckbox.checked && zones[1]) ? zones[1] : (zones[i+1] || []);
-    zonesToApply.forEach(z => {
+    const zs = (applyToAllCheckbox.checked && zones[1]) ? zones[1] : (zones[i+1] || []);
+    zs.forEach(z => {
       page.drawRectangle({
         x: z.x / scale,
         y: height - (z.y + z.h) / scale,
         width: z.w / scale,
         height: z.h / scale,
-        color: color
+        color: rgb(1,1,1)
       });
     });
   });
@@ -214,9 +215,9 @@ downloadBtn.addEventListener('click', async () => {
   const blob = new Blob([await pdf.save()], {type:'application/pdf'});
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = `modifie_${pdfFile.name}`;
+  link.download = `pdf_efface.pdf`;
   link.click();
-});
+};
 </script>
 </body>
 </html>
